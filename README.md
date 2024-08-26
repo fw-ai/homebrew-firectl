@@ -5,6 +5,7 @@
 
 ```bash
 brew tap fw-ai/firectl
+brew update
 brew install firectl
 ```
 
