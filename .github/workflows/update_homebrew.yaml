@@ -51,14 +51,14 @@ jobs:
         }
 
         # Capture SHAs with newline trimming and validation
-        SHA256_LINUX=$(calculate_and_verify_sha "https://storage.googleapis.com/fireworks-public/firectl/stable/linux-amd64.gz")
-        SHA256_DARWIN_AMD64=$(calculate_and_verify_sha "https://storage.googleapis.com/fireworks-public/firectl/stable/darwin-amd64.gz")
-        SHA256_DARWIN_ARM64=$(calculate_and_verify_sha "https://storage.googleapis.com/fireworks-public/firectl/stable/darwin-arm64.gz")
+        SHA256_LINUX=$(calculate_and_verify_sha "https://storage.googleapis.com/fireworks-public/firectl/stable/linux-amd64.gz" | tr -d '[:space:]')
+        SHA256_DARWIN_AMD64=$(calculate_and_verify_sha "https://storage.googleapis.com/fireworks-public/firectl/stable/darwin-amd64.gz" | tr -d '[:space:]')
+        SHA256_DARWIN_ARM64=$(calculate_and_verify_sha "https://storage.googleapis.com/fireworks-public/firectl/stable/darwin-arm64.gz" | tr -d '[:space:]')
 
         # SHA validation function
         validate_sha() {
           local sha=$1
-          if [[ ! "$sha" =~ ^[a-fA-F0-9]{64}$ ]]; then
+          if [[ ! "$sha" =~ ^[a-f0-9]{64}$ ]]; then
             echo "❌ Invalid SHA format: $sha"
             exit 1
           fi
