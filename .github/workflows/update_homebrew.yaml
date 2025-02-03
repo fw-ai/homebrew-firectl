@@ -14,45 +14,94 @@ jobs:
 
     - name: Update formula
       run: |
-        # Function to retry SHA calculation with verification
+        set -euo pipefail  # Enable strict error checking
+        
         calculate_and_verify_sha() {
           local url=$1
-          local max_attempts=5
+          local max_attempts=10
           local attempt=1
+          local delay=30
           
           while [ $attempt -le $max_attempts ]; do
             echo "Attempt $attempt to calculate SHA for $url"
-            sha=$(curl -L "$url" | sha256sum | cut -d' ' -f1)
+            sha=$(curl -L --fail --retry 3 "$url" | sha256sum | cut -d' ' -f1 | tr -d '\n')
             
-            # Verify the SHA by downloading again
-            verify_sha=$(curl -L "$url" | sha256sum | cut -d' ' -f1)
+            if [ -z "$sha" ]; then
+              echo "Empty SHA, retrying..."
+              sleep $delay
+              attempt=$((attempt + 1))
+              continue
+            fi
+
+            verify_sha=$(curl -L --fail --retry 3 "$url" | sha256sum | cut -d' ' -f1 | tr -d '\n')
             
             if [ "$sha" = "$verify_sha" ]; then
+              echo "Verified SHA: $sha"
               echo "$sha"
               return 0
             fi
             
-            echo "SHA mismatch, retrying..."
-            sleep 10
+            echo "SHA mismatch ($sha vs $verify_sha), retrying in $delay seconds..."
+            sleep $delay
             attempt=$((attempt + 1))
           done
           
+          echo "Failed to get consistent SHA after $max_attempts attempts"
           return 1
         }
 
+        # Capture SHAs with newline trimming and validation
         SHA256_LINUX=$(calculate_and_verify_sha "https://storage.googleapis.com/fireworks-public/firectl/stable/linux-amd64.gz")
         SHA256_DARWIN_AMD64=$(calculate_and_verify_sha "https://storage.googleapis.com/fireworks-public/firectl/stable/darwin-amd64.gz")
         SHA256_DARWIN_ARM64=$(calculate_and_verify_sha "https://storage.googleapis.com/fireworks-public/firectl/stable/darwin-arm64.gz")
 
-        # Replace sha256 variables in the formula
-        sed -i "s|sha256 \".*\" # Linux|sha256 \"$SHA256_LINUX\" # Linux|" Formula/firectl.rb
-        sed -i "s|sha256 \".*\" # Darwin AMD64|sha256 \"$SHA256_DARWIN_AMD64\" # Darwin AMD64|" Formula/firectl.rb
-        sed -i "s|sha256 \".*\" # Darwin ARM64|sha256 \"$SHA256_DARWIN_ARM64\" # Darwin ARM64|" Formula/firectl.rb
+        # SHA validation function
+        validate_sha() {
+          local sha=$1
+          if [[ ! "$sha" =~ ^[a-fA-F0-9]{64}$ ]]; then
+            echo "❌ Invalid SHA format: $sha"
+            exit 1
+          fi
+        }
+
+        validate_sha "$SHA256_LINUX"
+        validate_sha "$SHA256_DARWIN_AMD64"
+        validate_sha "$SHA256_DARWIN_ARM64"
+
+        # Update formula with validation
+        sed -i.bak "s|sha256 \".*\" # Linux|sha256 \"$SHA256_LINUX\" # Linux|" Formula/firectl.rb
+        sed -i.bak "s|sha256 \".*\" # Darwin AMD64|sha256 \"$SHA256_DARWIN_AMD64\" # Darwin AMD64|" Formula/firectl.rb
+        sed -i.bak "s|sha256 \".*\" # Darwin ARM64|sha256 \"$SHA256_DARWIN_ARM64\" # Darwin ARM64|" Formula/firectl.rb
+        rm Formula/firectl.rb.bak  # Remove backup files
+
+    - name: Validate Formula
+      run: |
+        verify_sha() {
+          local url=$1
+          local expected_sha=$2
+          local actual_sha=$(curl -L --fail "$url" | sha256sum | cut -d' ' -f1 | tr -d '\n')
+          
+          if [ "$actual_sha" != "$expected_sha" ]; then
+            echo "❌ SHA mismatch for $url"
+            echo "Expected: $expected_sha"
+            echo "Actual: $actual_sha"
+            exit 1
+          fi
+          echo "✅ Verified SHA for $url"
+        }
+
+        LINUX_SHA=$(grep 'sha256 ".*" # Linux' Formula/firectl.rb | cut -d'"' -f2)
+        DARWIN_AMD64_SHA=$(grep 'sha256 ".*" # Darwin AMD64' Formula/firectl.rb | cut -d'"' -f2)
+        DARWIN_ARM64_SHA=$(grep 'sha256 ".*" # Darwin ARM64' Formula/firectl.rb | cut -d'"' -f2)
+
+        verify_sha "https://storage.googleapis.com/fireworks-public/firectl/stable/linux-amd64.gz" "$LINUX_SHA"
+        verify_sha "https://storage.googleapis.com/fireworks-public/firectl/stable/darwin-amd64.gz" "$DARWIN_AMD64_SHA"
+        verify_sha "https://storage.googleapis.com/fireworks-public/firectl/stable/darwin-arm64.gz" "$DARWIN_ARM64_SHA"
 
     - name: Commit changes
       run: |
         git config --local user.email "github-actions@fireworks.ai"
         git config --local user.name "GitHub Actions Bot"
         git add Formula/firectl.rb
-        git commit -m "Update Formula for ${{ github.GITHUB_REF }}"
+        git diff-index --quiet HEAD || git commit -m "Update Formula SHAs"
         git push
