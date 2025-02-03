@@ -14,9 +14,36 @@ jobs:
 
     - name: Update formula
       run: |
-        SHA256_LINUX=$(curl -L https://storage.googleapis.com/fireworks-public/firectl/stable/linux-amd64.gz | sha256sum | cut -d' ' -f1)
-        SHA256_DARWIN_AMD64=$(curl -L https://storage.googleapis.com/fireworks-public/firectl/stable/darwin-amd64.gz | sha256sum | cut -d' ' -f1)
-        SHA256_DARWIN_ARM64=$(curl -L https://storage.googleapis.com/fireworks-public/firectl/stable/darwin-arm64.gz | sha256sum | cut -d' ' -f1)
+        # Function to retry SHA calculation with verification
+        calculate_and_verify_sha() {
+          local url=$1
+          local max_attempts=5
+          local attempt=1
+          
+          while [ $attempt -le $max_attempts ]; do
+            echo "Attempt $attempt to calculate SHA for $url"
+            sha=$(curl -L "$url" | sha256sum | cut -d' ' -f1)
+            
+            # Verify the SHA by downloading again
+            verify_sha=$(curl -L "$url" | sha256sum | cut -d' ' -f1)
+            
+            if [ "$sha" = "$verify_sha" ]; then
+              echo "$sha"
+              return 0
+            fi
+            
+            echo "SHA mismatch, retrying..."
+            sleep 10
+            attempt=$((attempt + 1))
+          done
+          
+          return 1
+        }
+
+        SHA256_LINUX=$(calculate_and_verify_sha "https://storage.googleapis.com/fireworks-public/firectl/stable/linux-amd64.gz")
+        SHA256_DARWIN_AMD64=$(calculate_and_verify_sha "https://storage.googleapis.com/fireworks-public/firectl/stable/darwin-amd64.gz")
+        SHA256_DARWIN_ARM64=$(calculate_and_verify_sha "https://storage.googleapis.com/fireworks-public/firectl/stable/darwin-arm64.gz")
+
         # Replace sha256 variables in the formula
         sed -i "s|sha256 \".*\" # Linux|sha256 \"$SHA256_LINUX\" # Linux|" Formula/firectl.rb
         sed -i "s|sha256 \".*\" # Darwin AMD64|sha256 \"$SHA256_DARWIN_AMD64\" # Darwin AMD64|" Formula/firectl.rb
