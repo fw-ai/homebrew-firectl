@@ -23,11 +23,11 @@ jobs:
           local delay=30
           
           while [ $attempt -le $max_attempts ]; do
-            echo "Attempt $attempt to calculate SHA for $url"
+            echo "Attempt $attempt to calculate SHA for $url" >&2  # Redirect to stderr
             sha=$(curl -L --fail --retry 3 "$url" | sha256sum | cut -d' ' -f1 | tr -d '\n')
             
             if [ -z "$sha" ]; then
-              echo "Empty SHA, retrying..."
+              echo "Empty SHA, retrying..." >&2
               sleep $delay
               attempt=$((attempt + 1))
               continue
@@ -36,17 +36,17 @@ jobs:
             verify_sha=$(curl -L --fail --retry 3 "$url" | sha256sum | cut -d' ' -f1 | tr -d '\n')
             
             if [ "$sha" = "$verify_sha" ]; then
-              echo "Verified SHA: $sha"
-              echo "$sha"
+              echo "Verified SHA for $url" >&2
+              echo "$sha"  # Only output the SHA value to stdout
               return 0
             fi
             
-            echo "SHA mismatch ($sha vs $verify_sha), retrying in $delay seconds..."
+            echo "SHA mismatch ($sha vs $verify_sha), retrying in $delay seconds..." >&2
             sleep $delay
             attempt=$((attempt + 1))
           done
           
-          echo "Failed to get consistent SHA after $max_attempts attempts"
+          echo "Failed to get consistent SHA after $max_attempts attempts" >&2
           return 1
         }
 
