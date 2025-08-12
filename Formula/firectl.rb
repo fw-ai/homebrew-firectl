@@ -10,8 +10,8 @@ class Firectl < Formula
 
   depends_on "go" => :build
   depends_on "rust" => :build
-
-  def install
+  
+    def install
     # Build Go CLI
     cd "fireworks/firectl" do
       system "go", "build", "-trimpath", "-o", bin/"firectl", "./cmd/firectl"
@@ -21,15 +21,15 @@ class Firectl < Formula
         system "cargo", "build", "--release"
         bin.install "target/release/safetensors-metadata"
       end
+      end
     end
-  end
-
-  test do
+  
+    test do
     # firectl should print a version or help text successfully
     assert_match "", shell_output("#{bin}/firectl version")
-
+  
     # safetensors-metadata without args should show usage and exit non-zero
     output = shell_output("#{bin}/safetensors-metadata 2>&1", 1)
     assert_match "usage: safetensors-metadata", output
   end
-end
+  end
