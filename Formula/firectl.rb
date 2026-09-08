@@ -2,14 +2,14 @@ class Firectl < Formula
     desc "CLI tool for managing Fireworks deployments"
     homepage "https://readme.fireworks.ai/reference/firectl"
     url "https://storage.googleapis.com/fireworks-public/firectl/stable/linux-amd64.gz"
-    sha256 "9b4b623ab6a21f9b3b00969e5110211a2df2e5bab5b3ad9361b96ebd70f2faa9" # Linux
+    sha256 "8e3ef0828356902f70000190508af7e4734b073d9a02952e98b376df23e6ee6d" # Linux
   
     if OS.mac? && Hardware::CPU.intel?
       url "https://storage.googleapis.com/fireworks-public/firectl/stable/darwin-amd64.gz"
-      sha256 "734f0e6454189a49831bab5dd2c93047973858ff1d7ec1b56b4c71fe7d35cf5c" # Darwin AMD64
+      sha256 "9d0d487c240676cfbcd0ac7b6b1fc8c1138ba33bcadb743dca8bfcab34866b3a" # Darwin AMD64
     elsif OS.mac? && Hardware::CPU.arm?
       url "https://storage.googleapis.com/fireworks-public/firectl/stable/darwin-arm64.gz"
-      sha256 "9bb871da9d2c2a86ef0a350d65fc50458afbf11fba99326b789f232cd3dcd3a9" # Darwin ARM64
+      sha256 "6baa1b62fc4e7bc79a23f4c2826b20db74739a26dd01b0baa0294e5f254059f9" # Darwin ARM64
     end
   
     def install
